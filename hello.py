@@ -2,6 +2,7 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import awswrangler as wr
+from PIL import Image
 
 st.title('TWITTERBOOKS')
 st.header('Week of January 22, 2022')
