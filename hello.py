@@ -8,6 +8,7 @@ st.title('TWITTERBOOKS')
 st.header('Week of January 22, 2022')
 # st.header('week of January 22, 2022')
 df = wr.s3.read_json(path='s3://warcbooks/data/staging/batch/topbooks/topbooks.json', dtype=False)
+df = df.to_html(escape=False, index=False)
 st.dataframe(df,800,1200)
 # if st.checkbox('Show dataframe'):
 #    chart_data = df
