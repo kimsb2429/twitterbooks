@@ -8,8 +8,16 @@ import datetime
 
 # wide mode
 st.set_page_config(layout="wide")
+
+# check which week
+key = 's3://warcbooks/data/staging/batch/topbooks/topbooks.json'
+last_modified = wr.s3.describe_objects(key)[key]['LastModified']
+collection_date = last_modified - datetime.timedelta(8)
+week_of = f"Week of {collection_date.strftime('%B %-d, %Y')}"
+
+# titles
 st.title('TWITTERBOOKS')
-st.header('Week of January 22, 2022')
+st.header(week_of)
 
 # two-column layout
 col1, col1x, col2, = st.columns([1.5,0.05, 1])
@@ -18,18 +26,20 @@ years = df['year'].astype(int).tolist()
 min_year = min(years)
 max_year = datetime.date.today().year
 np_years = np.array(years)
-min_default = int(np.quantile(np_years,0.25))
-max_default = int(np.quantile(np_years,0.75))
+# min_default = int(np.quantile(np_years,0.25))
+# max_default = int(np.quantile(np_years,0.75))
 
 # slider to select year range
 values = col2.slider(
      'Filter by years',
-     min_year, max_year, (min_default,max_default))
+     min_year, max_year, (min_year,max_year))
 col2.text("")
 
 
 # the main data table
-col1.dataframe(df,height=750)
+df['year'] = df['year'].astype(int)
+tabledf = df[(df['year']<=values[1]) & (df['year']>=values[0])]
+col1.dataframe(tabledf,height=750)
 
 # group mention counts by year and by the slider selection
 yeardf = df[['year','mentions']].groupby(['year']).sum()
