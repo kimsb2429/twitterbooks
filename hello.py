@@ -13,13 +13,13 @@ st.set_page_config(layout="wide")
 @st.cache
 def one_moment_pls():
    # check which week
-   key = 's3://warcbooks/data/staging/batch/topbooks/topbooks.json'
+   key = 's3://warcbooks/data/main/batch/topbooks/topbooks.json'
    last_modified = wr.s3.describe_objects(key)[key]['LastModified']
    collection_date = last_modified - datetime.timedelta(8)
    week_of = collection_date.strftime('%B %-d, %Y')
 
    # get top-books df
-   df = wr.s3.read_json(path='s3://warcbooks/data/staging/batch/topbooks/topbooks.json', dtype=False)
+   df = wr.s3.read_json(path=key, dtype=False)
 
    # get num books processed
    booksdf = wr.s3.read_json(path='s3://warcbooks/data/extracted/isbn/master/isbn_master.json', dtype=False)
