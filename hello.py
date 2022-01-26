@@ -22,7 +22,7 @@ def one_moment_pls():
    df = wr.s3.read_json(path=key, dtype=False)
 
    # get num books processed
-   booksdf = wr.s3.read_json(path='s3://warcbooks/data/extracted/isbn/master/isbn_master.json', dtype=False)
+   booksdf = wr.s3.read_json(path='s3://warcbooks/data/transformed/isbn/v1', dtype=False)
    num_books = booksdf.shape[0]
    return week_of, df, num_books
 
