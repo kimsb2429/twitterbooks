@@ -9,19 +9,32 @@ import datetime
 # wide mode
 st.set_page_config(layout="wide")
 
-# check which week
-key = 's3://warcbooks/data/staging/batch/topbooks/topbooks.json'
-last_modified = wr.s3.describe_objects(key)[key]['LastModified']
-collection_date = last_modified - datetime.timedelta(8)
-week_of = f"Week of {collection_date.strftime('%B %-d, %Y')}"
+# one-time computes
+@st.cache
+def one_moment_pls():
+   # check which week
+   key = 's3://warcbooks/data/staging/batch/topbooks/topbooks.json'
+   last_modified = wr.s3.describe_objects(key)[key]['LastModified']
+   collection_date = last_modified - datetime.timedelta(8)
+   week_of = collection_date.strftime('%B %-d, %Y')
+
+   # get top-books df
+   df = wr.s3.read_json(path='s3://warcbooks/data/staging/batch/topbooks/topbooks.json', dtype=False)
+
+   # get num books processed
+   booksdf = wr.s3.read_json(path='s3://warcbooks/data/extracted/isbn/master/isbn_master.json', dtype=False)
+   num_books = booksdf.shape[0]
+   return week_of, df, num_books
+
+week_of, df, num_books = one_moment_pls()
 
 # titles
 st.title('TWITTERBOOKS')
-st.header(week_of)
+st.header(f'Week of {week_of}')
 
 # two-column layout
 col1, col1x, col2, = st.columns([1.5,0.05, 1])
-df = wr.s3.read_json(path='s3://warcbooks/data/staging/batch/topbooks/topbooks.json', dtype=False)
+col2.header('{:,} books queried'.format(num_books))
 years = df['year'].astype(int).tolist()
 min_year = min(years)
 max_year = datetime.date.today().year
