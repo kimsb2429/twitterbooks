@@ -43,7 +43,7 @@ class Stream(RecentSearch):
     def set_query(self, query):
         Stream.query = query
 
-@st.cache
+# @st.cache
 def tweets(qlist,data_loaded):
    # stream = Stream() 
    columns = ['id','text','created_at','author_id','username']
@@ -52,9 +52,12 @@ def tweets(qlist,data_loaded):
    for q in qlist:
       url=f'https://api.twitter.com/2/tweets/search/recent?query={q}&max_results=10&expansions=author_id&user.fields=username&tweet.fields=created_at'
       headers = {'Accept': 'application/json','Authorization': f"Bearer {data_loaded['keys']['bearer_token']}"} # send request to twitter
+      st.write('1')
       tweet = requests.get(url=url, headers=headers).json()
+      st.write('2')
       # for tweet in stream.connect():
       if 'data' in tweet:
+         st.write('3')
          for user in tweet['includes']['users']:
             if user['id'] == tweet['data'][0]['author_id']:
                   username = user['username']
