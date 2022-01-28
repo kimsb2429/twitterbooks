@@ -83,8 +83,9 @@ def get_queries(df):
    return qlist
 
 @st.cache
-def get_pretty_tweets(refresh=datetime.datetime.utcfromtimestamp(1284286794)):
-   refresh=refresh
+def get_pretty_tweets():
+# def get_pretty_tweets(refresh=datetime.datetime.utcfromtimestamp(1284286794)):
+#    refresh=refresh
    # <script>document.documentElement.style.setProperty('color-scheme', 'dark');</script>
    # <script>document.body.style.backgroundColor = "black";</script>
    hstr = """
@@ -156,9 +157,9 @@ chosen = col2.radio(
 if chosen=='Tweets':
    with col2:
       html_str = get_pretty_tweets()
-      refresh_button = st.button('Get More Tweets')
-      if refresh_button == True:
-         html_str = get_pretty_tweets(refresh=datetime.datetime.now())
+      # refresh_button = st.button('Get More Tweets')
+      # if refresh_button == True:
+      #    html_str = get_pretty_tweets(refresh=datetime.datetime.now())
       components.html(html_str, height=1100,scrolling=True)
 
 if chosen=='Stats':
