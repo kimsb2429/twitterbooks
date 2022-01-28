@@ -43,7 +43,7 @@ class Stream(RecentSearch):
     def set_query(self, query):
         Stream.query = query
 
-@st.cache(suppress_st_warning=True)
+# @st.cache(suppress_st_warning=True)
 def tweets(qlist):
    stream = Stream() 
    columns = ['id','text','created_at','author_id','username']
