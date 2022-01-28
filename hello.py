@@ -54,7 +54,7 @@ def tweets(qlist,data_loaded):
       headers = {'Accept': 'application/json','Authorization': f"Bearer {data_loaded['keys']['bearer_token']}"} # send request to twitter
       st.write('1')
       tweet = requests.get(url=url, headers=headers).json()
-      st.write('2')
+      st.write(tweet)
       # for tweet in stream.connect():
       if 'data' in tweet:
          st.write('3')
