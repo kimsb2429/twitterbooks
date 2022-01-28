@@ -156,11 +156,14 @@ chosen = col2.radio(
 
 if chosen=='Tweets':
    with col2:
-      html_str = get_pretty_tweets()
-      # refresh_button = st.button('Get More Tweets')
-      # if refresh_button == True:
-      #    html_str = get_pretty_tweets(refresh=datetime.datetime.now())
-      components.html(html_str, height=1100,scrolling=True)
+      try:
+         html_str = get_pretty_tweets()
+         # refresh_button = st.button('Get More Tweets')
+         # if refresh_button == True:
+         #    html_str = get_pretty_tweets(refresh=datetime.datetime.now())
+         components.html(html_str, height=1100,scrolling=True)
+      except Exception as e:
+         print(e)
 
 if chosen=='Stats':
    # group mention counts by year and by the slider selection
