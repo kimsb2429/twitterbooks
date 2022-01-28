@@ -161,7 +161,8 @@ if chosen=='Tweets':
          # refresh_button = st.button('Get More Tweets')
          # if refresh_button == True:
          #    html_str = get_pretty_tweets(refresh=datetime.datetime.now())
-         components.html(html_str, height=1100,scrolling=True)
+         # components.html(html_str, height=1100,scrolling=True)
+         st.text(html_str)
       except Exception as e:
          f = open('log.txt', 'a')
          f.write('An exceptional thing happed - %s' % e)
