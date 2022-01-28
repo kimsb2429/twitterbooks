@@ -163,7 +163,9 @@ if chosen=='Tweets':
          #    html_str = get_pretty_tweets(refresh=datetime.datetime.now())
          components.html(html_str, height=1100,scrolling=True)
       except Exception as e:
-         print(e)
+         f = open('log.txt', 'a')
+         f.write('An exceptional thing happed - %s' % e)
+         f.close()
 
 if chosen=='Stats':
    # group mention counts by year and by the slider selection
