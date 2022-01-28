@@ -43,7 +43,7 @@ class Stream(RecentSearch):
     def set_query(self, query):
         Stream.query = query
 
-# @st.cache(suppress_st_warning=True)
+@st.cache
 def tweets(qlist):
    stream = Stream() 
    columns = ['id','text','created_at','author_id','username']
@@ -51,9 +51,7 @@ def tweets(qlist):
    try:
       for q in qlist:
          stream.set_query([q])
-         st.text(q)
          for tweet in stream.connect():
-               st.text("I'm in")
                if 'data' in tweet:
                   for user in tweet['includes']['users']:
                      if user['id'] == tweet['data'][0]['author_id']:
@@ -75,7 +73,7 @@ def tweets(qlist):
    tdf = tdf.sort_values(by=['created'],ascending=False)
    return tdf
 
-# @st.cache
+@st.cache
 def get_queries(df):
    tdf = df[['query']]
    tdf['tquery'] = tdf['query'].str.replace('%20',' ', regex=False)
@@ -86,10 +84,9 @@ def get_queries(df):
    qlist = [q+' -is:retweet -is:reply lang:en' for q in qlist]
    return qlist
 
-# @st.cache
-def get_pretty_tweets():
-# def get_pretty_tweets(refresh=datetime.datetime.utcfromtimestamp(1284286794)):
-#    refresh=refresh
+@st.cache
+def get_pretty_tweets(refresh=datetime.datetime.utcfromtimestamp(1284286794)):
+   refresh=refresh
    # <script>document.documentElement.style.setProperty('color-scheme', 'dark');</script>
    # <script>document.body.style.backgroundColor = "black";</script>
    hstr = """
@@ -161,12 +158,17 @@ chosen = col2.radio(
 if chosen=='Tweets':
    with col2:
       try:
+         with open("../.twitter-keys.yaml", 'r') as stream:
+            data_loaded = yaml.safe_load(stream) 
+         url = f'https://publish.twitter.com/oembed?url=https%3A%2F%2Ftwitter.com%2FMIM_Spell%2Fstatus%2F1487136757099515908'
+         headers = {'Accept': 'application/json','Authorization': f"Bearer {data_loaded['keys']['bearer_token']}"} # send request to twitter
+         r = requests.get(url=url, headers=headers).json()
+         st.write(r['html'])
          html_str = get_pretty_tweets()
-         # refresh_button = st.button('Get More Tweets')
-         # if refresh_button == True:
-         #    html_str = get_pretty_tweets(refresh=datetime.datetime.now())
-         # components.html(html_str, height=1100,scrolling=True)
-         st.text(html_str)
+         refresh_button = st.button('Get More Tweets')
+         if refresh_button == True:
+            html_str = get_pretty_tweets(refresh=datetime.datetime.now())
+         components.html(html_str, height=1100,scrolling=True)
       except Exception as e:
          f = open('log.txt', 'a')
          f.write('An exceptional thing happed - %s' % e)
