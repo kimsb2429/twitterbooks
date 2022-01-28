@@ -75,7 +75,7 @@ def tweets(qlist):
    tdf = tdf.sort_values(by=['created'],ascending=False)
    return tdf
 
-@st.cache
+# @st.cache
 def get_queries(df):
    tdf = df[['query']]
    tdf['tquery'] = tdf['query'].str.replace('%20',' ', regex=False)
@@ -86,7 +86,7 @@ def get_queries(df):
    qlist = [q+' -is:retweet -is:reply lang:en' for q in qlist]
    return qlist
 
-@st.cache
+# @st.cache
 def get_pretty_tweets():
 # def get_pretty_tweets(refresh=datetime.datetime.utcfromtimestamp(1284286794)):
 #    refresh=refresh
