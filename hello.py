@@ -51,7 +51,9 @@ def tweets(qlist):
    try:
       for q in qlist:
          stream.set_query([q])
+         st.text(q)
          for tweet in stream.connect():
+               st.text("I'm in")
                if 'data' in tweet:
                   for user in tweet['includes']['users']:
                      if user['id'] == tweet['data'][0]['author_id']:
@@ -66,7 +68,9 @@ def tweets(qlist):
                   tdf = tdf.append(temp_df)
                   break
    except Exception as e:
-      print(e)
+      f = open('log.txt', 'a')
+      f.write('An exceptional thing happed - %s' % e)
+      f.close()
    tdf['created']=pd.to_datetime(tdf['created_at'],format='%Y-%m-%dT%H:%M:%S.%fZ')
    tdf = tdf.sort_values(by=['created'],ascending=False)
    return tdf
