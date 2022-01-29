@@ -35,13 +35,13 @@ def caching():
 week_of, df, num_books = caching()
 
 # tweet stream class and functions
-class Stream(RecentSearch):
-    max_results = ['10']
-    expansions = ['author_id']
-    tweet_fields = ['created_at']
-    user_fields = ['name']
-    def set_query(self, query):
-        Stream.query = query
+# class Stream(RecentSearch):
+#     max_results = ['10']
+#     expansions = ['author_id']
+#     tweet_fields = ['created_at']
+#     user_fields = ['name']
+#     def set_query(self, query):
+#         Stream.query = query
 
 # @st.cache
 def tweets(qlist,data_loaded):
