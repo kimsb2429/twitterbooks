@@ -19,6 +19,10 @@ import yaml
 import requests
 from twitter_stream import RecentSearch
 import streamlit.components.v1 as components
+
+# wide mode
+st.set_page_config(layout="wide")
+
 url='https://api.twitter.com/2/tweets/search/recent?query=dalloway%20virginia%20virginia%20woolf%20woolf%20%2Dis%3Aretweet%20%2Dis%3Areply%20lang%3Aen&max_results=10&expansions=author_id&user.fields=username&tweet.fields=created_at'
 headers = {'Accept': 'application/json','Authorization': f"Bearer AAAAAAAAAAAAAAAAAAAAADMjYAEAAAAAqmfuzkrkCu6ao6UMNVi4yt20uvU%3DLTRJVXwIqkPudVSpmhlumqlamt1vS57fUYrVCGjYWMvizBWcUd"}
 r = requests.get(url=url, headers=headers).json()
@@ -27,8 +31,7 @@ st.write(json.dumps(r, indent=4))
 
 
 
-# # wide mode
-# st.set_page_config(layout="wide")
+
 
 # # one-time computes
 # @st.cache
