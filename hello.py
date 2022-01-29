@@ -13,7 +13,7 @@ import streamlit.components.v1 as components
 url='https://api.twitter.com/2/tweets/search/recent?query=heart%20is%20lonely%20hunter&max_results=10&expansions=author_id&user.fields=username&tweet.fields=created_at'
 headers = {'Accept': 'application/json','Authorization': f"Bearer AAAAAAAAAAAAAAAAAAAAADMjYAEAAAAAqmfuzkrkCu6ao6UMNVi4yt20uvU%3DLTRJVXwIqkPudVSpmhlumqlamt1vS57fUYrVCGjYWMvizBWcUd"}
 r = requests.get(url=url, headers=headers).json()
-print(json.dumps(r, indent=4))
+st.write(json.dumps(r, indent=4))
 
 
 # # wide mode
