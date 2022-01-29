@@ -51,35 +51,10 @@ class Stream(RecentSearch):
     def set_query(self, query):
         Stream.query = query
 
-@st.cache
-def tweets(qlist):
-   stream = Stream() 
-   columns = ['id','text','created_at','author_id','username']
-   tdf = pd.DataFrame(columns=columns) 
-   try:
-      for q in qlist:
-         stream.set_query([q])
-         for tweet in stream.connect():
-               if 'data' in tweet:
-                  for user in tweet['includes']['users']:
-                     if user['id'] == tweet['data'][0]['author_id']:
-                           username = user['username']
-                  temp_df = pd.DataFrame({
-                     'id':tweet['data'][0]['id'],
-                     'text':tweet['data'][0]['text'],
-                     'created_at':tweet['data'][0]['created_at'],
-                     'author_id':tweet['data'][0]['author_id'],
-                     'username':username
-                  }, index=[0])
-                  tdf = tdf.append(temp_df)
-                  break
-   except Exception as e:
-      f = open('log.txt', 'a')
-      f.write('An exceptional thing happed - %s' % e)
-      f.close()
-   tdf['created']=pd.to_datetime(tdf['created_at'],format='%Y-%m-%dT%H:%M:%S.%fZ')
-   tdf = tdf.sort_values(by=['created'],ascending=False)
-   return tdf
+# @st.cache
+# def tweets(qlist):
+   
+   # return tdf
 
 @st.cache
 def get_queries(df):
@@ -117,7 +92,33 @@ def get_pretty_tweets(refresh=datetime.datetime.utcfromtimestamp(1284286794)):
    """
    qlist = get_queries(df)
    qlist = random.sample(qlist,25)
-   tdf = tweets(qlist)
+   stream = Stream() 
+   columns = ['id','text','created_at','author_id','username']
+   tdf = pd.DataFrame(columns=columns) 
+   try:
+      for q in qlist:
+         stream.set_query([q])
+         for tweet in stream.connect():
+               if 'data' in tweet:
+                  for user in tweet['includes']['users']:
+                     if user['id'] == tweet['data'][0]['author_id']:
+                           username = user['username']
+                  temp_df = pd.DataFrame({
+                     'id':tweet['data'][0]['id'],
+                     'text':tweet['data'][0]['text'],
+                     'created_at':tweet['data'][0]['created_at'],
+                     'author_id':tweet['data'][0]['author_id'],
+                     'username':username
+                  }, index=[0])
+                  tdf = tdf.append(temp_df)
+                  break
+   except Exception as e:
+      f = open('log.txt', 'a')
+      f.write('An exceptional thing happed - %s' % e)
+      f.close()
+   tdf['created']=pd.to_datetime(tdf['created_at'],format='%Y-%m-%dT%H:%M:%S.%fZ')
+   tdf = tdf.sort_values(by=['created'],ascending=False)
+   # tdf = tweets(qlist)
    tids = tdf['id'].tolist()
    tusernames = tdf['username'].tolist()
    # my_table = col1.table(tdf)
