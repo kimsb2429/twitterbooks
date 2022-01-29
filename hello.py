@@ -35,7 +35,7 @@ def tweets(qlist):
    tdf = pd.DataFrame(columns=columns) 
    try:
       for q in qlist:
-         url=f'https://api.twitter.com/2/tweets/search/recent?query={qlist[0]}&max_results=10&expansions=author_id&user.fields=username&tweet.fields=created_at'
+         url=f'https://api.twitter.com/2/tweets/search/recent?query={q}&max_results=10&expansions=author_id&user.fields=username&tweet.fields=created_at'
          headers = {'Accept': 'application/json','Authorization': f"Bearer {st.secrets.t_bearer_token}"} # send request to twitter
          r = requests.get(url=url, headers=headers).json()
          if 'data' in r:
