@@ -5,15 +5,13 @@ import streamlit as st
 import datetime
 import random
 import requests
-from twitter_stream import RecentSearch
 import streamlit.components.v1 as components
-
 
 # wide mode
 st.set_page_config(layout="wide")
 
 # one-time computes
-@st.cache(ttl=3600)
+@st.cache
 def caching():
    # check which week
    key = 's3://warcbooks/data/main/batch/topbooks/most_recent/topbooks.json'
@@ -31,59 +29,45 @@ def caching():
 
 week_of, df, num_books = caching()
 
-# tweet stream class and functions
-class Stream(RecentSearch):
-    max_results = ['10']
-    expansions = ['author_id']
-    tweet_fields = ['created_at']
-    user_fields = ['name']
-    def set_query(self, query):
-        Stream.query = query
 
-@st.cache(ttl=600)
 def tweets(qlist):
-   stream = Stream() 
    columns = ['id','text','created_at','author_id','username']
    tdf = pd.DataFrame(columns=columns) 
    try:
       for q in qlist:
-         stream.set_query([q])
-         for tweet in stream.connect():
-               if 'data' in tweet:
-                  for user in tweet['includes']['users']:
-                     if user['id'] == tweet['data'][0]['author_id']:
-                           username = user['username']
-                  temp_df = pd.DataFrame({
-                     'id':tweet['data'][0]['id'],
-                     'text':tweet['data'][0]['text'],
-                     'created_at':tweet['data'][0]['created_at'],
-                     'author_id':tweet['data'][0]['author_id'],
-                     'username':username
-                  }, index=[0])
-                  tdf = tdf.append(temp_df)
-                  break
-         if tdf.shape[0]>6:
-            break
+         url=f'https://api.twitter.com/2/tweets/search/recent?query={qlist[0]}&max_results=10&expansions=author_id&user.fields=username&tweet.fields=created_at'
+         headers = {'Accept': 'application/json','Authorization': f"Bearer {st.secrets.t_bearer_token}"} # send request to twitter
+         r = requests.get(url=url, headers=headers).json()
+         if 'data' in r:
+            for user in r['includes']['users']:
+               if user['id'] == r['data'][0]['author_id']:
+                     username = user['username']
+            temp_df = pd.DataFrame({
+               'id':r['data'][0]['id'],
+               'text':r['data'][0]['text'],
+               'created_at':r['data'][0]['created_at'],
+               'author_id':r['data'][0]['author_id'],
+               'username':username
+            }, index=[0])
+            tdf = tdf.append(temp_df)
+            if tdf.shape[0]>6:
+               break
    except Exception as e:
-      f = open('log.txt', 'a')
-      f.write('An exceptional thing happed - %s' % e)
-      f.close()
+      st.write(e)
    tdf['created']=pd.to_datetime(tdf['created_at'],format='%Y-%m-%dT%H:%M:%S.%fZ')
    tdf = tdf.sort_values(by=['created'],ascending=False)
    return tdf
 
-@st.cache(ttl=600)
 def get_queries(df):
    tdf = df[['query']]
-   tdf['tquery'] = tdf['query'].str.replace('%20',' ', regex=False)
-   tdf['tquery'] = tdf['tquery'].str.replace('(','',regex=False)
+   tdf['tquery'] = tdf['query'].str.replace('(','',regex=False)
    tdf['tquery'] = tdf['tquery'].str.replace(')','',regex=False)
+   tdf['tquery'] = tdf['tquery'] + '%20%2Dis%3Aretweet%20%2Dis%3Areply%20lang%3Aen'
    qlist = tdf['tquery'].tolist()
    tdf = tdf.drop(columns=['tquery'])
-   qlist = [q+' -is:retweet -is:reply lang:en' for q in qlist]
    return qlist
 
-@st.cache(ttl=600)
+
 def get_pretty_tweets(refresh=datetime.datetime.utcfromtimestamp(1284286794)):
    refresh=refresh
    # <script>document.documentElement.style.setProperty('color-scheme', 'dark');</script>
