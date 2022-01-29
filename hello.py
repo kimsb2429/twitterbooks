@@ -67,71 +67,13 @@ def get_queries(df):
    qlist = [q+' -is:retweet -is:reply lang:en' for q in qlist]
    return qlist
 
-@st.cache
-def get_pretty_tweets(refresh=datetime.datetime.utcfromtimestamp(1284286794)):
-   refresh=refresh
-   # <script>document.documentElement.style.setProperty('color-scheme', 'dark');</script>
-   # <script>document.body.style.backgroundColor = "black";</script>
-   hstr = """
-   <script>window.twttr = (function(d, s, id) {
-   var js, fjs = d.getElementsByTagName(s)[0],
-      t = window.twttr || {};
-   if (d.getElementById(id)) return t;
-   js = d.createElement(s);
-   js.id = id;
-   js.src = "https://platform.twitter.com/widgets.js";
-   fjs.parentNode.insertBefore(js, fjs);
+# @st.cache
+# def get_pretty_tweets(refresh=datetime.datetime.utcfromtimestamp(1284286794)):
+#    refresh=refresh
+#    # <script>document.documentElement.style.setProperty('color-scheme', 'dark');</script>
+#    # <script>document.body.style.backgroundColor = "black";</script>
 
-   t._e = [];
-   t.ready = function(f) {
-      t._e.push(f);
-   };
-
-   return t;
-   }(document, "script", "twitter-wjs"));</script>
-   """
-   qlist = get_queries(df)
-   qlist = random.sample(qlist,25)
-   stream = Stream() 
-   columns = ['id','text','created_at','author_id','username']
-   tdf = pd.DataFrame(columns=columns) 
-   try:
-      for q in qlist:
-         stream.set_query([q])
-         for tweet in stream.connect():
-               if 'data' in tweet:
-                  for user in tweet['includes']['users']:
-                     if user['id'] == tweet['data'][0]['author_id']:
-                           username = user['username']
-                  temp_df = pd.DataFrame({
-                     'id':tweet['data'][0]['id'],
-                     'text':tweet['data'][0]['text'],
-                     'created_at':tweet['data'][0]['created_at'],
-                     'author_id':tweet['data'][0]['author_id'],
-                     'username':username
-                  }, index=[0])
-                  tdf = tdf.append(temp_df)
-                  break
-   except Exception as e:
-      f = open('log.txt', 'a')
-      f.write('An exceptional thing happed - %s' % e)
-      f.close()
-   tdf['created']=pd.to_datetime(tdf['created_at'],format='%Y-%m-%dT%H:%M:%S.%fZ')
-   tdf = tdf.sort_values(by=['created'],ascending=False)
-   # tdf = tweets(qlist)
-   tids = tdf['id'].tolist()
-   tusernames = tdf['username'].tolist()
-   # my_table = col1.table(tdf)
-   with open("../.twitter-keys.yaml", 'r') as stream:
-      tkeys = yaml.safe_load(stream)
-   for i,tid in enumerate(tids):
-      tusername = tusernames[i]
-      url = f'https://publish.twitter.com/oembed?url=https%3A%2F%2Ftwitter.com%2F{tusername}%2Fstatus%2F{tid}'
-      headers = {'Accept': 'application/json','Authorization': f"Bearer {tkeys['keys']['bearer_token']}"} # send request to twitter
-      resp = requests.get(url=url, headers=headers).json()
-      hstr += resp['html']
-   hstr = hstr.replace('blockquote class','blockquote data-theme="dark" class')
-   return hstr
+#    return hstr
 
 # titles
 st.title('TWITTERBOOKS')
@@ -167,11 +109,70 @@ chosen = col2.radio(
 if chosen=='Tweets':
    with col2:
       try:
-         html_str = get_pretty_tweets()
-         refresh_button = st.button('Get More Tweets')
-         if refresh_button == True:
-            html_str = get_pretty_tweets(refresh=datetime.datetime.now())
+         # html_str = get_pretty_tweets()
+         # refresh_button = st.button('Get More Tweets')
+         # if refresh_button == True:
+         #    html_str = get_pretty_tweets(refresh=datetime.datetime.now())
          components.html(html_str, height=1100,scrolling=True)
+         hstr = """
+         <script>window.twttr = (function(d, s, id) {
+         var js, fjs = d.getElementsByTagName(s)[0],
+            t = window.twttr || {};
+         if (d.getElementById(id)) return t;
+         js = d.createElement(s);
+         js.id = id;
+         js.src = "https://platform.twitter.com/widgets.js";
+         fjs.parentNode.insertBefore(js, fjs);
+
+         t._e = [];
+         t.ready = function(f) {
+            t._e.push(f);
+         };
+
+         return t;
+         }(document, "script", "twitter-wjs"));</script>
+         """
+         qlist = get_queries(df)
+         qlist = random.sample(qlist,25)
+         stream = Stream() 
+         columns = ['id','text','created_at','author_id','username']
+         tdf = pd.DataFrame(columns=columns) 
+         try:
+            for q in qlist:
+               stream.set_query([q])
+               for tweet in stream.connect():
+                     if 'data' in tweet:
+                        for user in tweet['includes']['users']:
+                           if user['id'] == tweet['data'][0]['author_id']:
+                                 username = user['username']
+                        temp_df = pd.DataFrame({
+                           'id':tweet['data'][0]['id'],
+                           'text':tweet['data'][0]['text'],
+                           'created_at':tweet['data'][0]['created_at'],
+                           'author_id':tweet['data'][0]['author_id'],
+                           'username':username
+                        }, index=[0])
+                        tdf = tdf.append(temp_df)
+                        break
+         except Exception as e:
+            f = open('log.txt', 'a')
+            f.write('An exceptional thing happed - %s' % e)
+            f.close()
+         tdf['created']=pd.to_datetime(tdf['created_at'],format='%Y-%m-%dT%H:%M:%S.%fZ')
+         tdf = tdf.sort_values(by=['created'],ascending=False)
+         # tdf = tweets(qlist)
+         tids = tdf['id'].tolist()
+         tusernames = tdf['username'].tolist()
+         # my_table = col1.table(tdf)
+         with open("../.twitter-keys.yaml", 'r') as stream:
+            tkeys = yaml.safe_load(stream)
+         for i,tid in enumerate(tids):
+            tusername = tusernames[i]
+            url = f'https://publish.twitter.com/oembed?url=https%3A%2F%2Ftwitter.com%2F{tusername}%2Fstatus%2F{tid}'
+            headers = {'Accept': 'application/json','Authorization': f"Bearer {tkeys['keys']['bearer_token']}"} # send request to twitter
+            resp = requests.get(url=url, headers=headers).json()
+            hstr += resp['html']
+         hstr = hstr.replace('blockquote class','blockquote data-theme="dark" class')
       except Exception as e:
          f = open('log.txt', 'a')
          f.write('An exceptional thing happed - %s' % e)
