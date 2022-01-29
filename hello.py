@@ -54,7 +54,7 @@ def tweets(qlist,data_loaded):
       url=f'https://api.twitter.com/2/tweets/search/recent?query={q}&max_results=10&expansions=author_id&user.fields=username&tweet.fields=created_at'
       st.write(url)
       bearer=data_loaded['keys']['bearer_token']
-      headers = {'Accept': 'application/json','Authorization': f"Bearer {bearer}"} # send request to twitter
+      headers = {'Accept': 'application/json','Authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAADMjYAEAAAAAqmfuzkrkCu6ao6UMNVi4yt20uvU%3DL$'} # send request to twitter
       st.write(headers)
       tweet = requests.get(url=url, headers=headers).json()
       st.write(tweet)
