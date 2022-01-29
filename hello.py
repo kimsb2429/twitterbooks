@@ -58,6 +58,7 @@ def tweets(qlist,data_loaded):
       st.write(headers)
       tweet = requests.get(url=url, headers=headers).json()
       st.write(tweet)
+      break
       # for tweet in stream.connect():
       if 'data' in tweet:
          st.write('3')
