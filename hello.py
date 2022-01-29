@@ -13,7 +13,7 @@ import streamlit.components.v1 as components
 st.set_page_config(layout="wide")
 
 # one-time computes
-@st.cache
+@st.cache(ttl=3600)
 def caching():
    # check which week
    key = 's3://warcbooks/data/main/batch/topbooks/most_recent/topbooks.json'
@@ -40,7 +40,7 @@ class Stream(RecentSearch):
     def set_query(self, query):
         Stream.query = query
 
-@st.cache
+@st.cache(ttl=600)
 def tweets(qlist):
    stream = Stream() 
    columns = ['id','text','created_at','author_id','username']
@@ -72,7 +72,7 @@ def tweets(qlist):
    tdf = tdf.sort_values(by=['created'],ascending=False)
    return tdf
 
-@st.cache
+@st.cache(ttl=600)
 def get_queries(df):
    tdf = df[['query']]
    tdf['tquery'] = tdf['query'].str.replace('%20',' ', regex=False)
@@ -83,7 +83,7 @@ def get_queries(df):
    qlist = [q+' -is:retweet -is:reply lang:en' for q in qlist]
    return qlist
 
-@st.cache
+@st.cache(ttl=600)
 def get_pretty_tweets(refresh=datetime.datetime.utcfromtimestamp(1284286794)):
    refresh=refresh
    # <script>document.documentElement.style.setProperty('color-scheme', 'dark');</script>
