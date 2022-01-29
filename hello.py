@@ -22,7 +22,7 @@ import streamlit.components.v1 as components
 url='https://api.twitter.com/2/tweets/search/recent?query=dalloway%20virginia%20virginia%20woolf%20woolf&max_results=10&expansions=author_id&user.fields=username&tweet.fields=created_at'
 headers = {'Accept': 'application/json','Authorization': f"Bearer AAAAAAAAAAAAAAAAAAAAADMjYAEAAAAAqmfuzkrkCu6ao6UMNVi4yt20uvU%3DLTRJVXwIqkPudVSpmhlumqlamt1vS57fUYrVCGjYWMvizBWcUd"}
 r = requests.get(url=url, headers=headers).json()
-print(json.dumps(r, indent=4))
+st.write(json.dumps(r, indent=4))
 
 #%20%2Dis%3Aretweet%20%2Dis%3Areply%20lang%3Aen
 
