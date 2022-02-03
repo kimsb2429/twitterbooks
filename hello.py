@@ -56,7 +56,9 @@ def tweets(qlist):
                'username':username
             }, index=[0])
             tdf = tdf.append(temp_df)
-            if tdf.shape[0]>25:
+
+            # keep 12 tweets
+            if tdf.shape[0]>12:
                break
    except Exception as e:
       print(e)
@@ -84,14 +86,13 @@ def get_queries(df):
    return qlist
 
 @st.experimental_memo(ttl=3600)
-def get_pretty_tweets():
+def get_pretty_tweets(df):
    '''
    Use twitter's built-in styling for embedding tweets.
    '''
    # <script>document.documentElement.style.setProperty('color-scheme', 'dark');</script>
    # <script>document.body.style.backgroundColor = "black";</script>
    hstr = """
-   <script>document.documentElement.style.setProperty('color-scheme', 'dark');</script>
    <script>window.twttr = (function(d, s, id) {
    var js, fjs = d.getElementsByTagName(s)[0],
       t = window.twttr || {};
@@ -122,13 +123,12 @@ def get_pretty_tweets():
       headers = {'Accept': 'application/json','Authorization': f"Bearer {st.secrets.t_bearer_token}"} # send request to twitter
       resp = requests.get(url=url, headers=headers).json()
       hstr += resp['html']
-   # hstr = hstr.replace('blockquote class','blockquote data-theme="dark" class')
+   hstr = hstr.replace('blockquote class','blockquote data-theme="dark" class')
    return hstr
 
 # singleton cache
 @st.experimental_singleton(suppress_st_warning=True)
 def build_sessiondf(df,rebuild=datetime.date(1900,1,1)):
-   print('inside build_sessiondf')
    '''
    Build dataframe to be used during session
    '''
@@ -232,8 +232,8 @@ def main():
    with col2:
       col2.subheader("Some Tweets")
       try:
-         html_str = get_pretty_tweets()
-         components.html(html_str,height=700,scrolling=True)
+         html_str = get_pretty_tweets(df)
+         components.html(html_str,height=500,scrolling=True)
       except Exception as e:
          print(e)
 
@@ -382,17 +382,13 @@ def update_count(sessiondf):
    Update the dataframe and charts with new mention counts.
    Input: session dataframe
    '''
-   print('hello')
    # cursor for the session dataframe index
    update_ind = st.session_state['update_ind']
-   print(update_ind)
-   print(sessiondf.shape[0])
+
    # restart at first row after updating last row
    if update_ind == sessiondf.shape[0]-1:
       st.session_state['update_ind'] = 1
-   print('hello2')
    if update_ind > 0:
-      print('hello3')
       # find query for the row
       query_list = sessiondf['query'].tolist()
       queries = [query_list[update_ind]]
