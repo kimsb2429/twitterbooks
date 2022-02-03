@@ -71,12 +71,14 @@ Front End
 - Streamlit
 <br/>
 <br/>
+
 # Repository Structure
 The working directory contains the app (hello.py), Dockerfile, and requirements.txt.
 
-/AWS/ contains the lambda functions and lib.py
+./Lambda/ contains the lambda functions and lib.py
 <br/>
 <br/>
+
 # Notes on Methodology
 - The project focuses on recent data and automated tracking of recent trends. Since twitter already provides full search capabilities to academics, such funcationality did not need to be replicated.
 - To efficiently navigate Twitter's API limits, books are queried in chunks of ~10 books. Batches with 0 mentions are discarded. Only the top batches are exploded into individual book queries.
