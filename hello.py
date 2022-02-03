@@ -231,11 +231,11 @@ def main():
    # tweets
    with col2:
       col2.subheader("Some Tweets")
-      # try:
-      #    html_str = get_pretty_tweets()
-      #    components.html(html_str,height=700,scrolling=True)
-      # except Exception as e:
-      #    print(e)
+      try:
+         html_str = get_pretty_tweets()
+         components.html(html_str,height=700,scrolling=True)
+      except Exception as e:
+         print(e)
 
    # stats
    col2.text('')
