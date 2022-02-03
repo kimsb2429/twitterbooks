@@ -51,37 +51,37 @@ def lambda_handler(event, context):
     # in case sns_publish doesn't run properly
     sns_fail_count = -1
     
-    # try:
-    #     # Parse ISBNs from Amazon URLs in the Common Crawl archives
-    #     drop_query = query_builder('DROP', db, table)                                   
-    #     create_query = query_builder('CREATE', db, table, catalog, columns, bucket, warc_key_parquet, 'PARQUET',\
-    #         where=f"crawl = '{crawl}' AND length(regexp_extract({filter_column}, {regex_filter}))>0")
-    #     unload_query = query_builder('UNLOAD', db, table, bucket=bucket, key=warc_key_json, formatting='JSON',\
-    #         select="SPLIT(url,'/')[6] AS ISBN")
+    try:
+        # Parse ISBNs from Amazon URLs in the Common Crawl archives
+        drop_query = query_builder('DROP', db, table)                                   
+        create_query = query_builder('CREATE', db, table, catalog, columns, bucket, warc_key_parquet, 'PARQUET',\
+            where=f"crawl = '{crawl}' AND length(regexp_extract({filter_column}, {regex_filter}))>0")
+        unload_query = query_builder('UNLOAD', db, table, bucket=bucket, key=warc_key_json, formatting='JSON',\
+            select="SPLIT(url,'/')[6] AS ISBN")
     
-    #     # Parse Common Crawl's amazon book urls to get ISBNs, use athena to store as json file
-    #     athena_start_query_execution(athena,drop_query,f's3://{bucket}/{warc_key}/drop_output/{crawl}/{datestr}')               
-    #     athena_start_query_execution(athena,create_query,f's3://{bucket}/{warc_key}/create_output/{crawl}/{datestr}')
-    #     athena_start_query_execution(athena,unload_query,f's3://{bucket}/{warc_key}/unload_output/{crawl}/{datestr}')          
+        # Parse Common Crawl's amazon book urls to get ISBNs, use athena to store as json file
+        athena_start_query_execution(athena,drop_query,f's3://{bucket}/{warc_key}/drop_output/{crawl}/{datestr}')               
+        athena_start_query_execution(athena,create_query,f's3://{bucket}/{warc_key}/create_output/{crawl}/{datestr}')
+        athena_start_query_execution(athena,unload_query,f's3://{bucket}/{warc_key}/unload_output/{crawl}/{datestr}')          
         
-    #     # Query ISBNDB API with the ISBNs for book data
-    #     b = s3_resource.Bucket(bucket)                                                        
-    #     df = pd.DataFrame()
-    #     for obj in b.objects.filter(Prefix='data'):
-    #         if obj.key.startswith(warc_key_json) and obj.key.endswith('.gz'):
-    #             new_df = pd.read_json(obj.get()['Body'], compression='gzip', lines=True, dtype=False)
-    #             df = df.append(new_df)
-    #     df = df.drop_duplicates()                                                                      # drop duplicates
-    #     booksdf = request_ISBNDB(df, 'https://api2.isbndb.com/books', ISBN_TOKEN, chunk_length = 1000) # request book data from ISBNDB
-    #     booksdf = booksdf.reset_index().drop(columns='index')                                          # index must be unique
-    #     wr.s3.to_json(df=booksdf, path=f's3://{bucket}/{key}/isbn/{version}/{datestr}.json') # write to S3 as json files      
+        # Query ISBNDB API with the ISBNs for book data
+        b = s3_resource.Bucket(bucket)                                                        
+        df = pd.DataFrame()
+        for obj in b.objects.filter(Prefix='data'):
+            if obj.key.startswith(warc_key_json) and obj.key.endswith('.gz'):
+                new_df = pd.read_json(obj.get()['Body'], compression='gzip', lines=True, dtype=False)
+                df = df.append(new_df)
+        df = df.drop_duplicates()                                                                      # drop duplicates
+        booksdf = request_ISBNDB(df, 'https://api2.isbndb.com/books', ISBN_TOKEN, chunk_length = 1000) # request book data from ISBNDB
+        booksdf = booksdf.reset_index().drop(columns='index')                                          # index must be unique
+        wr.s3.to_json(df=booksdf, path=f's3://{bucket}/{key}/isbn/{version}/{datestr}.json') # write to S3 as json files      
     
-    #     # Transform and store
-    #     trans_df = transform_isbn(booksdf)
-    #     wr.s3.to_json(df=trans_df, path=f's3://{bucket}/data/transformed/isbn/{version}/{datestr}.json')
+        # Transform and store
+        trans_df = transform_isbn(booksdf)
+        wr.s3.to_json(df=trans_df, path=f's3://{bucket}/data/transformed/isbn/{version}/{datestr}.json')
     
-    # except:
-    #     pass  # If Common Crawl API throws a "Please reduce your rate" exception, work with existing master book data
+    except:
+        pass  # If Common Crawl API throws a "Please reduce your rate" exception, work with existing master book data
     
     booksdf = wr.s3.read_json(f's3://warcbooks/data/extracted/isbn/cur_version')
     trans_df = transform_isbn(booksdf)
