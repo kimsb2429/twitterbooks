@@ -38,9 +38,10 @@ I built a data pipeline to comple a list of books from Common Crawl, gather meta
     - using data lake and schema-on-read
 <br/>
 <br/>
+
 # Setup
 
-[Working on infrastructure-as-code.]
+[Working on infrastructure-as-code]
 
 
 AWS
