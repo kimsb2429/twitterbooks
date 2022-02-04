@@ -4,7 +4,7 @@
 
 This is a project that emerged from my research at Washington University in St. Louis, as well as the Data Engineering Nanodegree program at Udacity. The goal is to capture book trends on Twitter by tracking recent mentions of books.
 
-In this project, I built a pipeline to compile a list of books from petabytes of data in Common Crawl, together with metadata from ISBNDB.com. Recent mentions of books are tracked and stored in the cloud to be made available weekly on http://twitterbooks.io/. The results can be used to discover new books or to observe patterns in literary reception.
+In this project, I built a pipeline to compile a list of books from Common Crawl's archives of the internet, together with metadata from ISBNDB.com. Recent mentions of books are tracked and stored in the cloud to be made available weekly on http://twitterbooks.io/. The results can be used to discover new books or to observe patterns in literary reception.
 <br/>
 <br/>
 # Pipeline
