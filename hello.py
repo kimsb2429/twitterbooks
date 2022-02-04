@@ -27,7 +27,12 @@ def caching():
    # number of books queried
    booksdf = wr.s3.read_json(path='s3://warcbooks/data/main/batch/isbn/cur_version', dtype=False)
    num_books = booksdf.shape[0]
-   return df, num_books
+
+   # check which week
+   q_end = wr.s3.describe_objects(key)[key]['LastModified']
+   q_start = q_end - datetime.timedelta(7)
+
+   return df, num_books, q_start, q_end
 
 def tweets(qlist):
    '''
@@ -174,7 +179,7 @@ def color_new_mention(s):
 def main():
 
    # cache data from S3
-   df, num_books = caching()
+   df, num_books, q_start, q_end = caching()
 
    # distinguish user refresh and count update
    # singleton cache can be finicky, so some redundancy here
@@ -200,15 +205,17 @@ def main():
    st.title('TWITTERBOOKS')
 
    # subtitle
-   today = datetime.datetime.now()
-   last_week = today - datetime.timedelta(7)
+   # today = datetime.datetime.now()
+   # today_weekday = datetime.datetime.today().weekday()
+   # this_monday = today - datetime.timedelta(today_weekday)
+   # last_monday = this_monday - datetime.timedelta(7)
    st.header('100 Most Tweeted Books')
    
    # two-column layout
    col1, _, col2, = st.columns([1.3,0.05, 1.1])
 
    # time frame of the data
-   col1.code('{} — {}, {:,} books tracked'.format(last_week.strftime('%B %-d, %Y %H:%M:%S'), today.strftime('%B %-d, %Y %H:%M:%S'), num_books))
+   col1.code('{:,} books tracked, {} — {}'.format(num_books,q_start.strftime('%B %-d, %Y %H:%M:%S'), q_end.strftime('%B %-d, %Y %H:%M:%S')))
 
    # build session table
    df['year'] = df['year'].astype(int)
@@ -318,7 +325,8 @@ def twitter_query_update_count(queries):
       results = athena_start_query_execution(athena,athena_query,output)
       print(results)
       last_end_date = results['ResultSet']['Rows'][1]['Data'][0]['VarCharValue']
-
+      last_end_date_q = last_end_date.split('.')[0].replace(':','%3A') + 'Z'
+      url = f'{url}&start_time={last_end_date_q}'
       # send request to twitter
       response = requests.request("GET", url, auth=bearer_oauth, stream=True)
       print(response.status_code)
@@ -388,7 +396,8 @@ def update_count(sessiondf):
 
    # restart at first row after updating last row
    if update_ind == sessiondf.shape[0]-1:
-      st.session_state['update_ind'] = 1
+      del st.session_state['update_ind']
+      st.experimental_rerun()
    if update_ind > 0:
       # find query for the row
       query_list = sessiondf['query'].tolist()

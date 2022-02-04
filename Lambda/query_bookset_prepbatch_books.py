@@ -1,161 +1,210 @@
 import boto3
-import time
+import tempfile
+import configparser
+import numpy as np
 import pandas as pd
-import awswrangler as wr
+import json
+import requests
+from urllib.request import urlopen
+from pandas import json_normalize 
 from datetime import datetime
-from lib import *
 
-SNS_FAIL_COUNT = -1
-BUCKET="warcbooks"
-REGION='us-east-1'
-CONF = ConfigFromS3(BUCKET, 'script/config/hb.cfg', REGION).config 
-TWITTER_BEARER = CONF.get('Twitter','Bearer')
-VERSION = 'cur_version'
-SQS = boto3.client('sqs')
-SNS = boto3.client('sns')
-GLUE = boto3.client('glue')
+class SqsQueue():
+    def __init__(self, sqs, queue_name):
+        '''Set attributes for an SQS queue object'''
+        self.sqs = sqs
+        self.name = queue_name
+        self.url = sqs.get_queue_url(QueueName=queue_name)['QueueUrl']
+        self.size = int(sqs.get_queue_attributes(QueueUrl=self.url, AttributeNames=['ApproximateNumberOfMessages'])['Attributes']['ApproximateNumberOfMessages'])
 
-def lambda_handler(event, context):
-    '''
-    Reads book data from S3 and queries twitter for mentions.
-    In the first iteration, each query asks about a set of roughly ten books ("bookset").
-    This is done in order to speed up the batching process while dealing Twitter API limits.
-    The top 100 booksets, by mention count, are blown up into roughly 1,000 individual book queries.
-    Top 100 books, by mention count, are stored in a json file on S3.
-    '''
-    # In case the counting functions don't run properly
-    counts_df_length=-1
-    book_counts_df_length=-1
+class ConfigFromS3(object):
+    def __init__(self, bucket_name, key, region_name):
+        '''Read and parse configuration file from S3'''
+        defaults = {'aws_region': region_name}
+        session = boto3.session.Session(region_name=region_name)
+        self.bucket = session.resource('s3').Bucket(bucket_name)
+        temporary_file = tempfile.NamedTemporaryFile()
+        self.bucket.download_file(key, temporary_file.name)
+        self.config = configparser.RawConfigParser(defaults=defaults)
+        with open(temporary_file.name, 'r') as f:
+            self.config.read_file(f)
+        temporary_file.close()
+
+def remove_regex(df, col_name, rm_words, rm_chars, code_space=True, add_paren=True):
+    '''Remove unwanted words and characters from a dataframe column and form query strings for Twitter'''
+
+
+    # rm_words > rm_chars > rm_words
+    # so that 'A A Milner' and 'A. A. Milner' become same person
+    # cannot simply be rm_chars > rm_words
+    # because 'ph.d.' 
+    rm_words = [r.lower() for r in rm_words]                                    # remove regex strings in rm_words
+    if len(rm_words)>0:                                                         # iff separated by spaces
+        for r in rm_words:                                                      # or located at beginning or end of string
+            df[col_name] = df[col_name].replace(' '+ r +' ',' ',regex=True)\
+                            .replace(' '+ r +'$','',regex=True)\
+                            .replace('^'+ r +' ','',regex=True)\
+                            .replace('  ',' ',regex=True)
+                            
+    if len(rm_chars)>0:                                                         # remove regex strings in rm_chars
+        for r in rm_chars:                                                      # words are removed again so that
+            df[col_name] = df[col_name].replace(r,' ',regex=True)               # 'A A Milner' and 'A. A. Milner' become same person
+        
+    if len(rm_words)>0:                                                         # words are removed again so that
+        for r in rm_words:                                                      # 'A A Milner' and 'A. A. Milner' become same person
+            df[col_name] = df[col_name].replace(' '+ r +' ',' ',regex=True)\
+                            .replace(' '+ r +'$','',regex=True)\
+                            .replace('^'+ r +' ','',regex=True)\
+                            .replace('  ',' ',regex=True)
+                            
+    df[col_name] = df[col_name].str.replace('\W',' ', regex=True)               # keep alphanumeric characters only
+    for i in range(10):
+        df[col_name] = df[col_name].str.replace('  ',' ', regex=True)           # make sure there aren't 2+ spaces
+    df[col_name] = df[col_name].str.strip()
+    if code_space:
+        df[col_name] = df[col_name].replace(' ','%20',regex=True)               # replace space with '%20'
+    if add_paren:
+        df[col_name] = ['(' + q + ')' for q in df[col_name]]                    # encase string in parentheses
+    return df       
     
-    # queue objects
-    prepbatch = SqsQueue(sqs=SQS, queue_name='prepbatch.fifo')
-    batchbook = SqsQueue(sqs=SQS, queue_name='batchbook.fifo')
-    
-    # version-controlled paths
-    book_counts_all_path = f's3://{BUCKET}/data/extracted/twitter/book_counts/all/{VERSION}'
-    book_counts_most_recent_path = f's3://{BUCKET}/data/extracted/twitter/book_counts/most_recent'
-    book_counts_csv_path = f's3://{BUCKET}/data/extracted/twitter/book_counts/csv'
-    book_skipped_df_path = f's3://{BUCKET}/data/extracted_failed/twitter/book_counts/all/{VERSION}'
-    bookset_counts_all_path = f's3://{BUCKET}/data/extracted/twitter/bookset_counts/all/{VERSION}'
-    bookset_counts_most_recent_path = f's3://{BUCKET}/data/extracted/twitter/bookset_counts/most_recent'
-    bookset_skipped_df_path = f's3://{BUCKET}/data/extracted_failed/twitter/bookset_counts/all/{VERSION}'
-    topbooks_all_path = f's3://{BUCKET}/data/extracted/twitter/topbooks/all/{VERSION}'
-    topbooks_most_recent_path = f's3://{BUCKET}/data/extracted/twitter/topbooks/most_recent'
-    print(prepbatch.size)
-    print(batchbook.size)
-    if prepbatch.size == 0:
-        if batchbook.size == 0:
-            recent_file = wr.s3.list_objects(book_counts_most_recent_path)
-            if not recent_file:
-                print('where')
-                # If the prepbatch and batchbook queues both happen to be empty, 
-                # and we haven't queried twitter for mentions of individual books 
-                # (as shown by the lack of recent book counts file), 
-                # then fill the batchbook queue using recent bookset data on S3.
-                sns_publish_to_batchbook() # Explode top 100 booksets to individual books, publish to batchbook
-            else:
-                print('oh')
-                top_file = wr.s3.list_objects(topbooks_most_recent_path)
-                if not top_file:
-                    # Prepbatch and batchbook queues are empty, book counts files have been made,
-                    # but topbooks files have not been made yet
-                    # Time to select top 100 books.
-                    booksdf = wr.s3.read_json(path=book_counts_most_recent_path, dtype=False)
-                    booksdf = booksdf.nlargest(300,'total_count')
-                    booksdf = booksdf.reset_index().drop(columns="index")
-                    wr.s3.to_json(df=booksdf, path=topbooks_all_path, dataset=True)
-                    wr.s3.to_json(df=booksdf, path=topbooks_most_recent_path, dataset=True)
-                    # Do not delete the most recent book counts file even after processing it
-                    # Lambda function 'twitterbooks' will take care of it next time
-                    
-                    # Invoke lambda function main_batch_topbooks
-                    print('here')
-                    l = boto3.client('lambda')
-                    response = l.invoke(FunctionName='main_batch_topbooks')
-        else:
-            # Prepbatch queue is empty, but batchbook queue has queries for individual books that have made the first cut. 
-            # Time to query twitter and store results.
-            book_counts_df, book_skipped_df, _ = query_twitter_total_count(batchbook)
-            book_counts_df_paths = [book_counts_all_path, book_counts_most_recent_path]
-            write_counts_to_disk(book_skipped_df, book_skipped_df_path, book_counts_df, book_counts_df_paths)
-            book_counts_df_length = book_counts_df.shape[0]
-            print(f'{book_counts_df_length} records appended to book_counts json files.')            
-    else:
-        # Prepbatch queue has messages (bookset queries) in it. 
-        # Time to query twitter with the given bookset queries and store results. 
-        # Once the queue is empty, publish to the topic 'batchbook.fifo'
-        counts_df, skipped_df, has_run_out = query_twitter_total_count(prepbatch)
-        counts_df_paths = [bookset_counts_all_path, bookset_counts_most_recent_path]
-        write_counts_to_disk(skipped_df, bookset_skipped_df_path, counts_df, counts_df_paths)
-        counts_df_length = counts_df.shape[0]
-        print(f'{counts_df_length} records appended to bookset_counts json files.')
-        if has_run_out and batchbook.size == 0:
-            sns_publish_to_batchbook()
-            
-    return f'{counts_df_length} records appended to bookset_counts json files. {book_counts_df_length} records appended to book_counts json files. SNS failed to publish {SNS_FAIL_COUNT} records to batchbook.'
-    
-def sns_publish_to_batchbook():
-    '''
-    Get top 100 booksets by mention count, form individual book queries, publish to the appropriate queue.
-    '''
-    all_booksets_df = wr.s3.read_json(path=f's3://{BUCKET}/data/extracted/twitter/bookset_counts/most_recent')
-    top_booksets_df = all_booksets_df.nlargest(300,'total_count')
-    book_queries = explode_query(top_booksets_df['request_url'].tolist())
-    
-    sns_batches = get_sns_batches(book_queries)
-    SNS_FAIL_COUNT = sns_publish(SNS, sns_batches, 'batchbook.fifo')
-    wr.s3.delete_objects(f's3://{BUCKET}/data/extracted/twitter/bookset_counts/most_recent')
+def wait_query_success(athena, response):
+    '''Check athena query status until it returns "SUCCEEDED"'''
+    status=''
+    while status != 'SUCCEEDED':
+        query_execution = athena.get_query_execution(QueryExecutionId=response['QueryExecutionId'])
+        status = query_execution['QueryExecution']['Status']['State']
+        if status == 'QUEUED' or status == 'RUNNING':
+            print(status)
+        if status == 'FAILED' or status == 'CANCELLED':
+            print(status + '\n')
+            print(query_execution)
+            raise Exception(query_execution)
     return None
 
-def query_twitter_total_count(queue):
-    '''
-    Read query messages from an SQS queue and queries Twitter. 
-    Return number of mentions in the last 7 days using the recent counts api.
-    Keep track of the 7-day total count and start and end timestamps for each query.
-    '''
-    sns = boto3.client('sns')
-    column_names = ['request_url','start_date','end_date','total_count']
-    counts_df = pd.DataFrame(columns=column_names)
-    skipped_list = []
-    skipped_df = pd.DataFrame(columns=['query'])
-    has_run_out = False
-    for i in range(10):
-        msgs = SQS.receive_message(QueueUrl=queue.url, MaxNumberOfMessages=10)
-        if 'Messages' in msgs:
-            for msg in msgs['Messages']:
-                receipt_handle = msg['ReceiptHandle']
-                message = msg['Body']
-                headers = {'Accept': 'application/json','Authorization': f'Bearer {TWITTER_BEARER}'} # send request to twitter
-                if message[:5] != 'https':
-                    message_json = json.loads(message)
-                    message = message_json['Message']
-                r = requests.get(url=message, headers=headers).json()
-                if 'title' in r:
-                    if r['title']=='Too Many Requests':
-                        time.sleep(15)                                           # slow down
-                    else:
-                        skipped_list.append(message)                            # skip if the issue is not 'too many requests'
-                        print(f're-published: {message}')
-                elif 'meta' in r: 
-                    total_count = r['meta']['total_tweet_count']                # total tweet counts for the past 7 days
-                    start_date = r['data'][0]['start']
-                    end_date = r['data'][-1]['end']
-                    counts = pd.DataFrame({'request_url':message, 'start_date':start_date, 'end_date': end_date, 'total_count':total_count}, index=[0])
-                    counts_df = counts_df.append(counts)
-                    delete_msg_from_queue(sqs=SQS, queue=queue, receipt_handle=receipt_handle)
-                    time.sleep(0.5)
-        else:
-            has_run_out=True
-    skipped_df['query']=skipped_list
-    counts_df = counts_df.reset_index().drop(columns="index")
-    return counts_df, skipped_df, has_run_out
+def athena_start_query_execution(athena, query, path):
+    '''Execute Athena query with given query and output path and wait for success'''
+    response = athena.start_query_execution(
+        QueryString=query,
+        ResultConfiguration={'OutputLocation': f'{path}'},
+        WorkGroup='primary',
+        QueryExecutionContext={'Catalog': 'AwsDataCatalog','Database': 'ccindex'}
+    )
+    wait_query_success(athena,response)
+    return None
+
+def query_builder(query_type, db, table, catalog='', columns=[], bucket='', key='', formatting='', select='', where=''):
+    '''Custom query builder for Athena. Currently supports DROP, CREATE, and UNLOAD'''
+    if query_type.lower() == 'drop':
+        query = f'''DROP TABLE IF EXISTS {db}.{table}'''
+    elif query_type.lower() == 'create':
+        query = f'''
+            CREATE TABLE {db}.{table}
+            WITH ( format='{formatting}', external_location='s3://{bucket}/{key}') AS
+            SELECT {columns}
+            FROM {catalog}.{db}
+        '''
+        if where != '': query += f' WHERE {where}'
+    elif query_type.lower() == 'unload':
+        query = f'''
+            UNLOAD (SELECT {select} FROM {table}) 
+            TO 's3://{bucket}/{key}' WITH (format='{formatting}')
+        '''
+    else:
+        raise('Query type not supported.')
+    return query
     
-def write_counts_to_disk(skipped_df, skipped_df_path, counts_df, counts_df_paths):
+def get_latest_common_crawl(collinfo):
+    '''Get latest crawl name from Common Crawl'''
+    response = urlopen(collinfo)
+    response_json = json.loads(response.read())
+    return response_json[0]['id']
+    
+def request_ISBNDB(df, request_url, isbn_token, chunk_length):
+    '''Chunk single-column dataframe according to chunk_length and request ISBNDB for book data'''
+    factor = df.shape[0]/(chunk_length-1)                                           # chunk
+    isbn_chunks = np.array_split(df,factor)                                         
+    isbn_chunks_joined = [",".join(chunk.isbn.tolist()) for chunk in isbn_chunks]
+    booksdf = pd.DataFrame()                                                        # dataframe to be returned                                                       
+    headers = {'Authorization': isbn_token, 'accept': 'application/json', 'Content-Type': 'application/json'}
+    for chunk in isbn_chunks_joined:
+        print(datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ': currently in isbn loop')
+        data = f'isbns={chunk}'                                                     # request each chunk
+        response = requests.post(request_url, headers=headers, data=data)
+        booksdf = booksdf.append(json_normalize(response.json(),'data'))            # append response to dataframe
+    return booksdf
+
+def sns_publish(sns, sns_batches, topic_name_with_extension):
     '''
-    Writes twitter counts and list of skipped queries to json files on S3.
+    Batch-publish twitter api queries to an SNS topic
+    Input: list of sns message dictionaries in sns publish_batch format
+    Output: number of failed messages
     '''
-    for path in counts_df_paths:
-        wr.s3.to_json(df=counts_df,path=path, dataset=True)
-    if not skipped_df.empty:
-        skipped_df.reset_index()
-        wr.s3.to_json(df=skipped_df,path=skipped_df_path, dataset=True)
+    topics = sns.list_topics()
+    fail_count = 0
+    for topic in topics['Topics']:
+        if topic['TopicArn'].split(':')[-1]==topic_name_with_extension:
+            topic_arn = topic['TopicArn']
+            print(topic_arn)
+    if topic_arn is None:
+        raise Exception('Please create topic "prepbatch.fifo" through the AWS SNS Console.')
+    else:
+        for batch in sns_batches:
+            response = sns.publish_batch(TopicArn=topic_arn, PublishBatchRequestEntries=batch)
+            if len(response['Failed'])>0:
+                print(response['Failed'])
+                fail_count += 1
+    return fail_count
+
+def get_sns_batches(queries):
+    '''Transform dataframe into a list of dictionaries formatted for SNS batch-publishing.'''
+    qlists = [queries[i:i+10] for i in range(0, len(queries),10)]
+    sns_batches =[]
+    fail_count = 0
+    for i, qlist in enumerate(qlists):
+        sns_batch = []
+        for j, q in enumerate(qlist):
+            sns_batch.append({'Id': str(j), 'Message': q, 'MessageGroupId': str(i)})
+        sns_batches.append(sns_batch)
+    return sns_batches
+
+def build_tweet_counts_query(q_list):
+    '''
+    Take a list of queries and combine them with "or" logic, twitter-style
+    Input: q_list: list or pandas series of strings
+    Output: df: pandas dataframe with a column of queries
+    '''
+    max_q = 512  # Max query length according to Twitter
+    q_list = [q for q in q_list if len(q)<max_q]  # Remove if single query string > max query length
+    query_list = [] 
+
+    # Build queries
+    iter_q = iter(q_list)
+    for q in iter_q:
+        query = ''
+        while (len(query + "%20OR%20" + q) < max_q):  # Keep query under max length
+            if query == '': query += q
+            else: query = query + '%20OR%20' + q  # Build query with "OR" logic
+            try: q = next(iter_q)
+            except: break  # Generator exhausted  
+        query = "https://api.twitter.com/2/tweets/counts/recent?query=" + query
+        query_list.append(query)
+
+    return query_list 
+
+def explode_query(query_list):
+    '''Get individual book queries from bookset queries'''
+    exploded_list=[]
+    for query in query_list:
+        base_url = query.split('=')[0]
+        for q in query.split('=')[1].split('%20OR%20'):
+            exploded_list.append(base_url + '=' + q)
+    return exploded_list
+
+def delete_msg_from_queue(sqs, queue, receipt_handle):
+    '''Delete individual messages from an sqs queue and check for success'''
+    response = sqs.delete_message(
+        QueueUrl=queue.url,
+        ReceiptHandle=receipt_handle
+    )
+    if int(response['ResponseMetadata']['HTTPStatusCode']) != 200:
+        raise Exception(f'Message receipt handle {receipt_handle} could not be deleted')
