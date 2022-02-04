@@ -308,7 +308,7 @@ def twitter_query_update_count(queries):
    '''
    column_names = ['request_url','start_date','end_date','tweet_count']
    counts_df = pd.DataFrame(columns=column_names)      
-   athena = boto3.client('athena')
+   athena = boto3.client('athena', region_name='us-east-1')
    output = 's3://warcbooks/data/extracted/twitter/book_counts/athena/'
    for query in queries:
       url = f'https://api.twitter.com/2/tweets/counts/recent?query={query}'
@@ -316,6 +316,7 @@ def twitter_query_update_count(queries):
       # find out when the last batch job ended
       athena_query = f"select end_date from csv where request_url = '{url}' limit 1"
       results = athena_start_query_execution(athena,athena_query,output)
+      print(results)
       last_end_date = results['ResultSet']['Rows'][1]['Data'][0]['VarCharValue']
 
       # send request to twitter
