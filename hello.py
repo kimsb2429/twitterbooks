@@ -395,10 +395,8 @@ def update_count(sessiondf):
    update_ind = st.session_state['update_ind']
 
    # restart at first row after updating last row
-   if update_ind == sessiondf.shape[0]-1:
-      del st.session_state['update_ind']
-      st.experimental_rerun()
    if update_ind > 0:
+
       # find query for the row
       query_list = sessiondf['query'].tolist()
       queries = [query_list[update_ind]]
@@ -417,18 +415,21 @@ def update_count(sessiondf):
          st.session_state['title'] = title
          st.session_state['author'] = author
          st.session_state['update'] = f"\n{counts_df['tweet_count'][0]} mentions of {title} by {author} since {last_end_date}."
-   
-   # cursor + 1
-   st.session_state['update_ind'] += 1
-   
-   # slow down between updates
-   time.sleep(3)
 
-   # mark auto_rerun (not user refresh) to maintain cache
-   st.session_state['auto_rerun'] = True
+   # stop if all rows are up to date
+   if update_ind == 0 or update_ind < sessiondf.shape[0]-1:
 
-   # rerun from the top
-   st.experimental_rerun()
+      # cursor + 1
+      st.session_state['update_ind'] += 1
+      
+      # slow down between updates
+      time.sleep(3)
+
+      # mark auto_rerun (not user refresh) to maintain cache
+      st.session_state['auto_rerun'] = True
+
+      # rerun from the top
+      st.experimental_rerun()
 
 if __name__ == "__main__":
    sdf = main()
