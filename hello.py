@@ -349,14 +349,14 @@ def twitter_query_update_count(queries):
 
 def get_query_results(athena, response):
    '''Get athena query results'''
-   query_results = athena.get_query_results(QueryExecutionId=response['QueryExecutionId'])
+   query_results = athena.get_query_results(QueryExecutionId=response['QueryExecutionId'],IamRoles=[st.secrets.t_bearer_token])
    return query_results
 
 def wait_query_success(athena, response):
    '''Check athena query status until it returns "SUCCEEDED"'''
    status=''
    while status != 'SUCCEEDED':
-      query_execution = athena.get_query_execution(QueryExecutionId=response['QueryExecutionId'])
+      query_execution = athena.get_query_execution(QueryExecutionId=response['QueryExecutionId'],IamRoles=[st.secrets.t_bearer_token])
       status = query_execution['QueryExecution']['Status']['State']
       if status == 'QUEUED' or status == 'RUNNING':
          pass
@@ -373,7 +373,8 @@ def athena_start_query_execution(athena, query, path):
       QueryString=query,
       ResultConfiguration={'OutputLocation': f'{path}'},
       WorkGroup='primary',
-      QueryExecutionContext={'Catalog': 'AwsDataCatalog','Database': 'ccindex'}
+      QueryExecutionContext={'Catalog': 'AwsDataCatalog','Database': 'ccindex'},
+      IamRoles=[st.secrets.t_bearer_token]
    )
    results = wait_query_success(athena,response)
    return results
