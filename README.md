@@ -5,8 +5,7 @@
 This is a project that emerged from my research at Washington University in St. Louis, as well as the Data Engineering Nanodegree program at Udacity. The goal is to capture book trends on Twitter by tracking recent mentions of books.
 
 In this project, I built a pipeline to compile a list of books from Common Crawl's archives of the internet, together with metadata from ISBNDB.com. Recent mentions of books are tracked and stored in the cloud to be made available weekly on http://twitterbooks.io/. The results can be used to discover new books or to observe patterns in literary reception.
-<br/>
-<br/>
+
 # Pipeline
 
 I built a data pipeline to comple a list of books from Common Crawl, gather metadata from ISBNDB, and track mentions on Twitter.
@@ -21,8 +20,6 @@ I built a data pipeline to comple a list of books from Common Crawl, gather meta
 4. AWS Lambda to clean, filter, and aggregate twitter mentions and book metadata, store results in S3
 5. AWS Glue to read fact table json and create/update table in Athena
 6. Dockerized app on EC2 instance to query twitter api to update the counts and display data with Streamlit
-<br/>
-<br/>
 
 # Architecture
 1. The project employs lambda architecture principles by having a batch layer and a speed layer.
@@ -33,11 +30,10 @@ I built a data pipeline to comple a list of books from Common Crawl, gather meta
     - Extracted data is stored in S3 as json files.
     - The files are transformed and stored in a different directory.
     - Glue Crawler reads the fact table file and creates/updates the table in the Athena database
-5. The project minimizes cost by
+5. Jobs are scheduled using AWS Glue and monitored on CloudWatch.
+6. The project minimizes cost by
     - using AWS lambda functions to pay for compute
     - using data lake and schema-on-read
-<br/>
-<br/>
 
 # Setup
 
@@ -69,15 +65,11 @@ Front End
 - AWS Glue, Eventbridge, Athena, Lambda, SNS, SQS, EC2
 - Docker
 - Streamlit
-<br/>
-<br/>
 
 # Repository Structure
 The working directory contains the app (hello.py), Dockerfile, and requirements.txt.
 
 ./Lambda/ contains the lambda functions and lib.py
-<br/>
-<br/>
 
 # Notes on Methodology
 - The project focuses on recent data and automated tracking of recent trends. Since twitter already provides full search capabilities to academics, such funcationality did not need to be replicated.
