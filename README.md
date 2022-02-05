@@ -30,7 +30,7 @@ I built a data pipeline to comple a list of books from Common Crawl, gather meta
     - Extracted data is stored in S3 as json files.
     - The files are transformed and stored in a different directory.
     - Glue Crawler reads the fact table file and creates/updates the table in the Athena database
-5. Jobs are scheduled using AWS Glue and monitored on CloudWatch.
+5. Jobs are scheduled using AWS EventBridge and monitored on CloudWatch.
 6. The project minimizes cost by
     - using AWS lambda functions to pay for compute
     - using data lake and schema-on-read
